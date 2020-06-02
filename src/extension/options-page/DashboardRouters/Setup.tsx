@@ -617,8 +617,8 @@ export function RestoreDatabaseAdvance() {
     const state = useState(0)
     const [tabState] = state
 
-    const importPersona = async (persona: null | Persona) => {
-        const failToRestore = () => enqueueSnackbar(t('set_up_restore_fail'), { variant: 'error' })
+    const importPersona = (persona: null | Persona) => {
+        const failToRestore = () => enqueueSnackbar(t('set_up_advance_restore_fail'), { variant: 'error' })
         try {
             if (persona) {
                 history.push(
@@ -627,7 +627,6 @@ export function RestoreDatabaseAdvance() {
                         : `${SetupStep.ConnectNetwork}?identifier=${encodeURIComponent(persona.identifier.toText())}`,
                 )
             } else {
-                console.log('restore failed')
                 failToRestore()
             }
         } catch (e) {
@@ -666,9 +665,15 @@ export function RestoreDatabaseAdvance() {
                         {file ? (
                             <QRCodeImageScanner
                                 file={file}
-                                onScan={async (scannedValue: string) =>
-                                    importPersona(await Services.Persona.restoreFromBackup(scannedValue))
-                                }
+                                onScan={async (scannedValue: string) => {
+                                    try {
+                                        importPersona(await Services.Persona.restoreFromBackup(scannedValue))
+                                    } catch (e) {
+                                        enqueueSnackbar(t('set_up_advance_restore_fail'), {
+                                            variant: 'error',
+                                        })
+                                    }
+                                }}
                                 onError={() => {
                                     enqueueSnackbar(t('set_up_qr_scanner_fail'), {
                                         variant: 'error',
@@ -698,10 +703,16 @@ export function RestoreDatabaseAdvance() {
                         variant="outlined"
                         onClick={() =>
                             openQRCodeVideoScannerDialog({
-                                onScan: async (scanedValue: string) =>
-                                    importPersona(await Services.Persona.restoreFromBackup(scanedValue)),
+                                onScan: async (scannedValue: string) => {
+                                    try {
+                                        importPersona(await Services.Persona.restoreFromBackup(scannedValue))
+                                    } catch (e) {
+                                        enqueueSnackbar(t('set_up_advance_restore_fail'), {
+                                            variant: 'error',
+                                        })
+                                    }
+                                },
                                 onError: () => {
-                                    console.log('error!')
                                     enqueueSnackbar(t('set_up_qr_scanner_fail'), {
                                         variant: 'error',
                                     })
@@ -783,21 +794,18 @@ export function RestoreDatabaseAdvance() {
                             !(tabState === 0 && nickname && mnemonicWordsValue) && !(tabState === 1 && base64Value)
                         }
                         onClick={async () => {
-                            switch (tabState) {
-                                case 0:
-                                    importPersona(
-                                        await Services.Persona.restoreFromMnemonicWords(
-                                            mnemonicWordsValue,
-                                            nickname,
-                                            password,
-                                        ),
-                                    )
-                                    break
-                                case 1:
-                                    importPersona(await Services.Persona.restoreFromBase64(base64Value))
-                                    break
-                                default:
-                                    break
+                            try {
+                                const persona = await (tabState === 0
+                                    ? Services.Persona.restoreFromMnemonicWords(mnemonicWordsValue, nickname, password)
+                                    : tabState === 1
+                                    ? Services.Persona.restoreFromBase64(base64Value)
+                                    : Promise.resolve(null))
+
+                                importPersona(persona)
+                            } catch (e) {
+                                enqueueSnackbar(t('set_up_advance_restore_fail'), {
+                                    variant: 'error',
+                                })
                             }
                         }}>
                         {t('set_up_button_import')}
