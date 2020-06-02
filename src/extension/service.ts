@@ -16,6 +16,7 @@ interface Services {
     UserGroup: typeof import('./background-script/UserGroupService')
     Welcome: typeof import('./background-script/WelcomeService')
     Steganography: typeof import('./background-script/SteganographyService')
+    Persona: typeof import('./background-script/PersonaService')
     Plugin: typeof import('./background-script/PluginService')
 }
 const Services = {} as Services
@@ -36,6 +37,7 @@ if (!('Services' in globalThis)) {
     register(createProxyToService('SteganographyService'), 'Steganography', MockService.SteganographyService)
     register(createProxyToService('IdentityService'), 'Identity', {})
     register(createProxyToService('UserGroupService'), 'UserGroup', {})
+    register(createProxyToService('PersonaService'), 'Persona', {})
     register(createProxyToService('PluginService'), 'Plugin', {})
 }
 interface ServicesWithProgress {

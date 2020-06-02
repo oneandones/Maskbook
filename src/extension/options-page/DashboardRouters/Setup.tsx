@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useMemo } from 'react'
 import {
     Typography,
     styled,
@@ -19,6 +19,7 @@ import {
     Select,
     MenuItem,
     FormControl,
+    useTheme,
 } from '@material-ui/core'
 import classNames from 'classnames'
 import * as bip39 from 'bip39'
@@ -26,16 +27,15 @@ import DashboardRouterContainer from './Container'
 import { useParams, useRouteMatch, Switch, Route, Redirect, Link, useHistory } from 'react-router-dom'
 import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline'
 import RadioButtonUncheckedIcon from '@material-ui/icons/RadioButtonUnchecked'
-import CheckBoxOutlinedIcon from '@material-ui/icons/CheckBoxOutlined'
 import CropFreeIcon from '@material-ui/icons/CropFree'
 import AddBoxOutlinedIcon from '@material-ui/icons/AddBoxOutlined'
 import ActionButton from '../DashboardComponents/ActionButton'
-import { merge, cloneDeep } from 'lodash-es'
+import { merge, cloneDeep, isEqualWith } from 'lodash-es'
 import { v4 as uuid } from 'uuid'
 import ProfileBox from '../DashboardComponents/ProfileBox'
 import Services from '../../service'
 import useQueryParams from '../../../utils/hooks/useQueryParams'
-import { useAsync, useMultiStateValidator, useDropArea } from 'react-use'
+import { useAsync, useDropArea } from 'react-use'
 import { Identifier, ECKeyIdentifier } from '../../../database/type'
 import { useI18N } from '../../../utils/i18n-next-ui'
 import { useMyPersonas } from '../../../components/DataSource/independent'
@@ -47,14 +47,13 @@ import { getUrl, unreachable, sleep } from '../../../utils/utils'
 import { green } from '@material-ui/core/colors'
 import { DashboardRoute } from '../Route'
 import { useSnackbar } from 'notistack'
-import { hasWKWebkitRPCHandlers } from '../../../utils/iOS-RPC'
-import { WKWebkitQRScanner } from '../../../components/shared/qrcode'
-import QRScanner from '../../../components/QRScanner'
 import { decodeArrayBuffer, decodeText } from '../../../utils/type-transform/String-ArrayBuffer'
 import { useStylesExtends } from '../../../components/custom-ui-helper'
 import { PortalShadowRoot } from '../../../utils/jss/ShadowRootPortal'
 import { useModal } from '../Dialogs/Base'
-import { QRCodeScannerDialog } from '../Dialogs/Setup'
+import { QRCodeVideoScannerDialog } from '../Dialogs/Setup'
+import { QRCodeImageScanner } from '../DashboardComponents/QRCodeImageScanner'
+import type { Persona } from '../../../database'
 
 export enum SetupStep {
     CreatePersona = 'create-persona',
@@ -294,7 +293,7 @@ export function ConnectNetwork() {
 
 //#region restore box
 const useRestoreBoxStyles = makeStyles((theme) =>
-    createStyles<string, RestoreBoxProps>({
+    createStyles({
         root: {
             color: theme.palette.text.hint,
             whiteSpace: 'pre-line',
@@ -313,13 +312,16 @@ const useRestoreBoxStyles = makeStyles((theme) =>
         },
         button: {
             '& > span:first-child': {
+                whiteSpace: 'nowrap',
                 display: 'inline-block',
                 maxWidth: 320,
-                overflow: 'hidden',
                 textOverflow: 'ellipsis',
             },
         },
         placeholder: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             pointerEvents: 'none',
             width: 64,
             height: 64,
@@ -327,27 +329,40 @@ const useRestoreBoxStyles = makeStyles((theme) =>
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center',
             backgroundSize: '64px 64px',
-            backgroundImage: (props) => `url(${getUrl(`${props.placeholder}-${theme.palette.type}.png`)})`,
+        },
+        placeholderImage: {
+            width: 64,
+            height: 64,
         },
     }),
 )
 
-interface RestoreBoxProps extends withClasses<'root' | 'button' | 'placeholder'>, React.HTMLAttributes<HTMLDivElement> {
+interface RestoreBoxProps extends withClasses<KeysInferFromUseStyles<typeof useRestoreBoxStyles>> {
     file: File | null
     entered: boolean
     enterText: string
     leaveText: string
-    placeholder?: string
+    placeholder: string
     children?: React.ReactNode
+    onClick?: () => void
 }
 
 function RestoreBox(props: RestoreBoxProps) {
-    const { entered, file, enterText, leaveText, ...restProps } = props
-    const classes = useStylesExtends(useRestoreBoxStyles(props), props)
-
+    const { entered, file, enterText, leaveText, placeholder, children, onClick } = props
+    const classes = useStylesExtends(useRestoreBoxStyles(), props)
+    const theme = useTheme()
     return (
-        <div className={classes.root} {...restProps}>
-            <div className={classes.placeholder}></div>
+        <div className={classes.root} data-active={entered} onClick={onClick}>
+            <div className={classes.placeholder}>
+                {children ? (
+                    children
+                ) : (
+                    <img
+                        className={classes.placeholderImage}
+                        src={getUrl(`${placeholder}-${theme.palette.type}.png`)}
+                    />
+                )}
+            </div>
             <ActionButton
                 className={file ? classes.button : ''}
                 color="primary"
@@ -600,56 +615,37 @@ export function RestoreDatabaseAdvance() {
     })
 
     const state = useState(0)
-    const [tabState, setTabState] = state
+    const [tabState] = state
 
-    const restorePersona = async (str?: string) => {
-        if (tabState === 0) {
-            if (!bip39.validateMnemonic(mnemonicWordsValue)) throw new Error('the mnemonic words are not valid')
-            const identifier = await Services.Welcome.restoreNewIdentityWithMnemonicWord(mnemonicWordsValue, password, {
-                nickname,
-            })
-            return Services.Identity.queryPersona(identifier)
-        } else {
-            const object = str
-                ? UpgradeBackupJSONFile(decompressBackupFile(str))
-                : (JSON.parse(decodeText(decodeArrayBuffer(base64Value))) as BackupJSONFileLatest)
-            await Services.Welcome.restoreBackup(object!)
-            if (object?.personas?.length) {
-                return Services.Identity.queryPersona(
-                    Identifier.fromString(object.personas[0].identifier, ECKeyIdentifier).unwrap(),
-                )
-            }
-            return
-        }
-    }
-    const importPersona = async (str?: string) => {
-        const failToRestore = () => enqueueSnackbar('Restore failed', { variant: 'error' })
+    const importPersona = async (persona: null | Persona) => {
+        const failToRestore = () => enqueueSnackbar(t('set_up_restore_fail'), { variant: 'error' })
         try {
-            const persona = await restorePersona(str)
             if (persona) {
-                history.replace(
+                history.push(
                     persona.linkedProfiles.size
                         ? DashboardRoute.Personas
                         : `${SetupStep.ConnectNetwork}?identifier=${encodeURIComponent(persona.identifier.toText())}`,
                 )
             } else {
+                console.log('restore failed')
                 failToRestore()
             }
         } catch (e) {
+            console.log('pesona not exists')
             failToRestore()
         }
     }
 
     function QRUI() {
         const { t } = useI18N()
-        const [qrCodeScannerDialog, , openQRCodeScannerDialog] = useModal(QRCodeScannerDialog)
+        const [qrCodeVideoScannerDialog, , openQRCodeVideoScannerDialog] = useModal(QRCodeVideoScannerDialog)
 
         return (
             <div {...bound} style={{ width: '100%', height: 120 }}>
                 <input
                     className={restoreDatabaseAdvanceClasses.file}
                     type="file"
-                    accept="application/json"
+                    accept="image/*"
                     ref={ref}
                     onChange={({ currentTarget }: React.ChangeEvent<HTMLInputElement>) => {
                         if (currentTarget.files) {
@@ -666,8 +662,21 @@ export function RestoreDatabaseAdvance() {
                         leaveText={t('restore_database_advance_dragged')}
                         placeholder="restore-image-placeholder"
                         data-active={over}
-                        onClick={() => ref.current && ref.current.click()}
-                    />
+                        onClick={() => ref.current && ref.current.click()}>
+                        {file ? (
+                            <QRCodeImageScanner
+                                file={file}
+                                onScan={async (scannedValue: string) =>
+                                    importPersona(await Services.Persona.restoreFromBackup(scannedValue))
+                                }
+                                onError={() => {
+                                    enqueueSnackbar(t('set_up_qr_scanner_fail'), {
+                                        variant: 'error',
+                                    })
+                                }}
+                            />
+                        ) : null}
+                    </RestoreBox>
                 </ShowcaseBox>
                 <Box display="flex" justifyContent="space-between">
                     <FormControl className={restoreDatabaseAdvanceClasses.formControl} variant="filled">
@@ -688,18 +697,21 @@ export function RestoreDatabaseAdvance() {
                         color="primary"
                         variant="outlined"
                         onClick={() =>
-                            openQRCodeScannerDialog({
-                                onScan: importPersona,
-                                onError: () =>
+                            openQRCodeVideoScannerDialog({
+                                onScan: async (scanedValue: string) =>
+                                    importPersona(await Services.Persona.restoreFromBackup(scanedValue)),
+                                onError: () => {
+                                    console.log('error!')
                                     enqueueSnackbar(t('set_up_qr_scanner_fail'), {
                                         variant: 'error',
-                                    }),
+                                    })
+                                },
                             })
                         }>
                         <CropFreeIcon />
                     </Button>
                 </Box>
-                {qrCodeScannerDialog}
+                {qrCodeVideoScannerDialog}
             </div>
         )
     }
@@ -740,7 +752,8 @@ export function RestoreDatabaseAdvance() {
                         rows={1}
                         placeholder={t('dashboard_paste_database_base64_hint')}
                         onChange={(e) => setBase64Value(e.target.value)}
-                        value={base64Value}></TextField>
+                        value={base64Value}
+                    />
                 ),
                 display: 'flex',
                 p: 0,
@@ -769,7 +782,24 @@ export function RestoreDatabaseAdvance() {
                         disabled={
                             !(tabState === 0 && nickname && mnemonicWordsValue) && !(tabState === 1 && base64Value)
                         }
-                        onClick={() => importPersona()}>
+                        onClick={async () => {
+                            switch (tabState) {
+                                case 0:
+                                    importPersona(
+                                        await Services.Persona.restoreFromMnemonicWords(
+                                            mnemonicWordsValue,
+                                            nickname,
+                                            password,
+                                        ),
+                                    )
+                                    break
+                                case 1:
+                                    importPersona(await Services.Persona.restoreFromBase64(base64Value))
+                                    break
+                                default:
+                                    break
+                            }
+                        }}>
                         {t('set_up_button_import')}
                     </ActionButton>
                     <ActionButton variant="text" onClick={() => history.goBack()}>
@@ -906,7 +936,7 @@ export function RestoreDatabaseConfirmation() {
     ]
 
     const restoreConfirmation = async () => {
-        const failToRestore = () => enqueueSnackbar('Restore failed', { variant: 'error' })
+        const failToRestore = () => enqueueSnackbar(t('set_up_restore_fail'), { variant: 'error' })
         if (uuid) {
             try {
                 setImported('loading')
