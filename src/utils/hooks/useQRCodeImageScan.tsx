@@ -21,7 +21,7 @@ export function useQRCodeImageScan(image: React.MutableRefObject<HTMLImageElemen
                 fakeImage.onload = () =>
                     scanner.current
                         .detect(fakeImage)
-                        .then(([result] = []) => resolve(result?.rawValue ?? ''))
+                        .then(([result] = []) => resolve(result?.rawValue))
                         .catch(reject)
                 fakeImage.onerror = reject
                 if (src && fakeImage.src !== src) {

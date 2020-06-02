@@ -5,13 +5,14 @@ import { CircularProgress } from '@material-ui/core'
 export interface QRCodeImageScanner
     extends React.DetailedHTMLProps<React.VideoHTMLAttributes<HTMLImageElement>, HTMLImageElement> {
     file: File | null
-    onScan: (value: string) => void
-    onError: () => void
+    onScan?: (value: string) => void
+    onError?: () => void
 }
 
 export function QRCodeImageScanner({ file, onScan, onError }: QRCodeImageScanner) {
     const imageRef = useRef<HTMLImageElement | null>(null)
     const [dataURL, setDataURL] = useState('')
+    const { value, loading, error } = useQRCodeImageScan(imageRef)
 
     // read file as data URL
     useEffect(() => {
@@ -25,11 +26,12 @@ export function QRCodeImageScanner({ file, onScan, onError }: QRCodeImageScanner
         }
     }, [file])
 
-    const { value, loading, error } = useQRCodeImageScan(imageRef)
-    if (!loading) {
-        if (error) onError()
-        else onScan(value ?? '')
-    }
+    // invoke scan result callbacks
+    useEffect(() => {
+        if (loading) return
+        if (error) onError?.()
+        else onScan?.(value ?? '')
+    }, [loading, value, error, onError, onScan])
     return (
         <>
             {loading ? <CircularProgress color="primary" style={{ maxWidth: 64, maxHeight: 64 }} /> : null}
