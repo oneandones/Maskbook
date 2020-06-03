@@ -1,6 +1,6 @@
 import { OnlyRunInContext } from '@holoflows/kit'
 import { encodeText } from '../../utils/type-transform/String-ArrayBuffer'
-import { sleep } from '../../utils/utils'
+import { sleep, getUrl } from '../../utils/utils'
 import getCurrentNetworkWorker from '../../social-network/utils/getCurrentNetworkWorker'
 import type { SocialNetworkUI } from '../../social-network/ui'
 import { getWelcomePageURL } from '../options-page/Welcome/getWelcomePageURL'
@@ -87,8 +87,9 @@ export async function openWelcomePage(id?: SocialNetworkUI['lastRecognizedIdenti
     return exclusiveTasks(getWelcomePageURL(id))
 }
 
-export async function openOptionsPage(route?: string): Promise<void> {
-    exclusiveTasks(browser.runtime.getURL(route ? '/index.html#' + route : '/'))
+export async function openOptionsPage(route?: string) {
+    console.log(getUrl(route ? '/index.html#' + route : '/index.html'))
+    return exclusiveTasks(getUrl(route ? '/index.html#' + route : '/index.html'))
 }
 
 export { createPersonaByMnemonic } from '../../database'

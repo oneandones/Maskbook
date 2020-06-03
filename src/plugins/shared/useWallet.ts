@@ -23,7 +23,7 @@ export function useWalletDataSource() {
         wallets,
         tokens,
         React.useCallback(() => {
-            Services.Welcome.openOptionsPage('/wallets/error?reason=nowallet')
+            Services.Welcome.openOptionsPage('/wallets?error=nowallet')
         }, []),
     ] as const
 }

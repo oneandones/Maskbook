@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useAsync } from 'react-use'
 import { DashboardDialogCore, DashboardDialogWrapper, WrappedDialogProps, useSnackbarCallback } from './Base'
-import { CreditCard as CreditCardIcon, Hexagon as HexagonIcon, Clock as ClockIcon } from 'react-feather'
 import {
+    CreditCard as CreditCardIcon,
+    Hexagon as HexagonIcon,
+    Clock as ClockIcon,
+    Info as InfoIcon,
+} from 'react-feather'
+import {
+    Button,
     TextField,
     Typography,
     makeStyles,
@@ -31,6 +37,10 @@ import WalletLine from '../../../plugins/Wallet/UI/Dashboard/Components/WalletLi
 import { formatBalance } from '../../../plugins/Wallet/formatter'
 import { useValueRef } from '../../../utils/hooks/useValueRef'
 import { ethereumNetworkSettings } from '../../../plugins/Wallet/network'
+import useQueryParams from '../../../utils/hooks/useQueryParams'
+import { Link, useHistory } from 'react-router-dom'
+import { DashboardRoute } from '../Route'
+import { sleep } from '../../../utils/utils'
 
 //#region wallet import dialog
 export function DashboardWalletImportDialog(props: WrappedDialogProps) {
@@ -512,6 +522,53 @@ export function DashboardWalletDeleteConfirmDialog(props: WrappedDialogProps<Wal
                             {t('cancel')}
                         </DebounceButton>
                     </SpacedButtonGroup>
+                }></DashboardDialogWrapper>
+        </DashboardDialogCore>
+    )
+}
+//#endregion
+
+//#region wallet error dialog
+export function DashboardWalletErrorDialog(props: WrappedDialogProps) {
+    const { t } = useI18N()
+    const history = useHistory()
+    const { error } = useQueryParams(['error'])
+
+    let message = ''
+    switch (error) {
+        case 'nowallet':
+            message = 'You have no wallet currently. Create or Import one before doing that.'
+            break
+        case 'Returned error: gas required exceeds allowance (10000000) or always failing transaction':
+            message = 'This Red Packet is not claimable. It may have been claimed or refunded.'
+            break
+        case 'Returned error: insufficient funds for gas * price value':
+            message = 'Your allowance in this wallet is not sufficient to do that.'
+            break
+        default:
+            message = 'Unknown Error.'
+            break
+    }
+
+    const onClose = async () => {
+        props.onClose()
+        // prevent UI updating before dialog disappearing
+        await sleep(300)
+        history.replace(DashboardRoute.Wallets)
+    }
+
+    return (
+        <DashboardDialogCore {...props} onClose={onClose}>
+            <DashboardDialogWrapper
+                size="small"
+                icon={<InfoIcon />}
+                iconColor="#F4637D"
+                primary="Error"
+                secondary={message}
+                footer={
+                    <Button variant="contained" color="primary" onClick={onClose}>
+                        {t('ok')}
+                    </Button>
                 }></DashboardDialogWrapper>
         </DashboardDialogCore>
     )

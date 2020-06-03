@@ -34,7 +34,6 @@ import { useCapturedInput } from '../../../../utils/hooks/useCapturedEvents'
 import { PluginMessageCenter } from '../../../PluginMessages'
 import { getActivatedUI } from '../../../../social-network/ui'
 import { useValueRef } from '../../../../utils/hooks/useValueRef'
-import { debugModeSetting } from '../../../../components/shared-settings/settings'
 import { formatBalance } from '../../formatter'
 import ShadowRootDialog from '../../../../utils/jss/ShadowRootDialog'
 import { PortalShadowRoot } from '../../../../utils/jss/ShadowRootPortal'
@@ -43,6 +42,7 @@ import { useWalletDataSource, useSelectWallet } from '../../../shared/useWallet'
 import { WalletSelect } from '../../../shared/WalletSelect'
 import { TokenSelect } from '../../../shared/TokenSelect'
 import { RedPacketMetaKey } from '../../RedPacketMetaKey'
+import { ethereumNetworkSettings } from '../../network'
 
 interface RedPacketDialogProps
     extends withClasses<
@@ -108,7 +108,7 @@ function NewPacketUI(props: RedPacketDialogProps & NewPacketProps) {
     const [shares, setShares] = useState(5)
     const [, sharesRef] = useCapturedInput((x) => setShares(parseInt(x)))
 
-    const rinkebyNetwork = useValueRef(debugModeSetting)
+    const netwrok = useValueRef(ethereumNetworkSettings)
 
     const useSelectWalletResult = useSelectWallet(wallets, tokens, onRequireNewWallet)
     const {
@@ -148,7 +148,7 @@ function NewPacketUI(props: RedPacketDialogProps & NewPacketProps) {
         props.onCreateNewPacket({
             duration: 60 /* seconds */ * 60 /* mins */ * 24 /* hours */,
             is_random: Boolean(is_random),
-            network: rinkebyNetwork ? EthereumNetwork.Rinkeby : EthereumNetwork.Mainnet,
+            network: netwrok,
             send_message,
             send_total: new BigNumber(send_total).multipliedBy(new BigNumber(10).pow(power)),
             sender_address: selectedWalletAddress!,
@@ -160,8 +160,6 @@ function NewPacketUI(props: RedPacketDialogProps & NewPacketProps) {
     }
     return (
         <div>
-            {rinkebyNetwork ? <div>Debug mode, will use test rinkeby to send your red packet</div> : null}
-            <br />
             <div className={classes.line}>
                 <WalletSelect
                     {...props}
