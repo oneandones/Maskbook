@@ -16,7 +16,7 @@ import {
 } from '@material-ui/core'
 import { useStylesExtends, or } from '../../../../components/custom-ui-helper'
 import { DialogDismissIconUI } from '../../../../components/InjectedComponents/DialogDismissIcon'
-import AbstractTab from '../../../../extension/options-page/DashboardComponents/AbstractTab'
+import AbstractTab, { AbstractTabProps } from '../../../../extension/options-page/DashboardComponents/AbstractTab'
 import { RedPacketWithState } from '../Dashboard/Components/RedPacket'
 import Services from '../../../../extension/service'
 import type { createRedPacketInit } from '../../red-packet-fsm'
@@ -328,7 +328,7 @@ const useStyles = makeStyles({
 })
 
 export default function RedPacketDialog(props: RedPacketDialogProps) {
-    const tabs = useState<0 | 1>(0)
+    const tabState = useState(0)
     const [preInitialRedPacket, setPreInitialRedPacket] = useState<Partial<RedPacketRecord> | null>(null)
 
     const createRedPacket = useCallback(
@@ -349,9 +349,9 @@ export default function RedPacketDialog(props: RedPacketDialogProps) {
                     },
                 },
             } as any) as Partial<RedPacketRecord>)
-            tabs[1](1)
+            tabState[1](1)
         },
-        [tabs],
+        [tabState],
     )
     const [wallets, tokens, onRequireNewWallet] = useWalletDataSource()
 
@@ -391,41 +391,42 @@ export default function RedPacketDialog(props: RedPacketDialogProps) {
     return (
         <RedPacketDialogUI
             {...props}
-            tab={tabs}
-            onRequireNewWallet={onRequireNewWallet}
-            newRedPacketCreatorName={useCurrentIdentity()?.linkedPersona?.nickname}
+            tabState={tabState}
             wallets={wallets}
             tokens={tokens}
             justCreatedRedPacket={justCreatedRedPacket}
             redPackets={redPacket}
             onCreateNewPacket={createRedPacket}
             onSelectExistingPacket={insertRedPacket}
+            onRequireNewWallet={onRequireNewWallet}
             preInitialRedPacket={preInitialRedPacket}
         />
     )
 }
 
 export function RedPacketDialogUI(
-    props: RedPacketDialogProps & NewPacketProps & ExistingPacketProps & { tab?: [0 | 1, (next: 0 | 1) => void] },
+    props: RedPacketDialogProps &
+        NewPacketProps &
+        ExistingPacketProps & { tabState?: [number, React.Dispatch<React.SetStateAction<number>>] },
 ) {
+    const state = or(props.tabState, useState(0))
     const classes = useStylesExtends(useStyles(), props)
-    const [currentTab, setCurrentTab] = or(props.tab, useState<0 | 1>(0)) as [
-        number,
-        React.Dispatch<React.SetStateAction<number>>,
-    ]
-
-    const tabs = [
-        {
-            label: 'Create New',
-            children: <NewPacketUI {...props} />,
-            p: 0,
-        },
-        {
-            label: 'Select Existing',
-            children: <ExistingPacketUI {...props} />,
-            p: 0,
-        },
-    ]
+    const tabProps: AbstractTabProps = {
+        tabs: [
+            {
+                label: 'Create New',
+                children: <NewPacketUI {...props} />,
+                p: 0,
+            },
+            {
+                label: 'Select Existing',
+                children: <ExistingPacketUI {...props} />,
+                p: 0,
+            },
+        ],
+        state,
+        height: 400,
+    }
     return (
         <ShadowRootDialog
             className={classes.dialog}
@@ -452,7 +453,7 @@ export function RedPacketDialogUI(
                 </Typography>
             </DialogTitle>
             <DialogContent className={classes.content}>
-                <AbstractTab height={400} state={[currentTab, setCurrentTab]} tabs={tabs}></AbstractTab>
+                <AbstractTab {...tabProps}></AbstractTab>
             </DialogContent>
         </ShadowRootDialog>
     )
