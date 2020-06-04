@@ -39,7 +39,9 @@
     }
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx}": ["eslint --ext .ts,.tsx --fix"]
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --ext .ts,.tsx --fix"
+    ]
   },
   "dependencies": {
     "@holoflows/kit": "https://github.com/DimensionDev/holoflows-kit",
