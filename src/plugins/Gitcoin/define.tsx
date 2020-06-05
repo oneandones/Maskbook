@@ -12,6 +12,9 @@ import { Result, Ok, Err } from 'ts-results'
 import { DonateCard } from './DonateCard'
 import { useWalletDataSource } from '../shared/useWallet'
 import type { GitcoinGrantMetadata } from './Services'
+import BigNumber from 'bignumber.js'
+import { EthereumNetwork, EthereumTokenType } from '../Wallet/database/types'
+import { getNetworkSettings } from '../Wallet/UI/Developer/SelectEthereumNetwork'
 
 export const GitcoinPluginDefine: PluginConfig = {
     identifier: 'co.gitcoin',
@@ -85,7 +88,27 @@ function PreviewCardLogic(props: { post: string }) {
                     onClose={() => setOpen(false)}
                     title={title ?? 'A Gitcoin grant'}
                     description={description ?? ''}
-                    onDonate={() => {}}
+                    onDonate={async ({ comment, amount, selectedWallet, selectedToken, selectedTokenType }) => {
+                        if (!address) {
+                            return
+                        }
+                        const power = selectedTokenType.type === 'eth' ? 18 : selectedToken!.decimals
+                        try {
+                            await Services.Plugin.invokePlugin('co.gitcoin', 'donateGrant', {
+                                donation_address: address,
+                                donation_total: new BigNumber(amount).multipliedBy(new BigNumber(10).pow(power)),
+                                donor_address: selectedWallet,
+                                network: getNetworkSettings().networkType,
+                                token_type:
+                                    selectedTokenType.type === 'eth' ? EthereumTokenType.eth : EthereumTokenType.erc20,
+                                comment,
+                                token: selectedToken,
+                            })
+                        } catch (e) {
+                            alert(e.message)
+                            console.log(`error: ${e}`)
+                        }
+                    }}
                 />
             ) : null}
         </>
