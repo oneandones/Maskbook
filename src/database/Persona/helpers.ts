@@ -162,6 +162,7 @@ export async function createPersonaByMnemonic(
         localKey,
         mnemonic,
         nickname,
+        uninitialized: true,
     })
 }
 
@@ -171,6 +172,7 @@ export async function createPersonaByJsonWebKey(options: {
     localKey?: AESJsonWebKey
     nickname?: string
     mnemonic?: PersonaRecord['mnemonic']
+    uninitialized?: boolean
 }): Promise<PersonaIdentifier> {
     const identifier = ECKeyIdentifier.fromJsonWebKey(options.publicKey)
     const record: PersonaRecord = {
@@ -183,6 +185,7 @@ export async function createPersonaByJsonWebKey(options: {
         nickname: options.nickname,
         mnemonic: options.mnemonic,
         localKey: options.localKey,
+        uninitialized: options.uninitialized,
     }
     await consistentPersonaDBWriteAccess((t) => createPersonaDB(record, t as any))
     return identifier
