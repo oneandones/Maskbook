@@ -22,7 +22,7 @@ import useQueryParams from '../../../utils/hooks/useQueryParams'
 import { useAsync } from 'react-use'
 import { Identifier, ECKeyIdentifier } from '../../../database/type'
 import { useI18N } from '../../../utils/i18n-next-ui'
-import { useMyPersonas } from '../../../components/DataSource/independent'
+import { useMyUninitializedPersonas } from '../../../components/DataSource/independent'
 import { UpgradeBackupJSONFile } from '../../../utils/type-transform/BackupFormat/JSON/latest'
 import { decompressBackupFile } from '../../../utils/type-transform/BackupFileShortRepresentation'
 import { extraPermissions } from '../../../utils/permissions'
@@ -224,13 +224,13 @@ export function ConnectNetwork() {
     const providerLineClasses = useProviderLineStyle()
     const history = useHistory()
 
-    const personas = useMyPersonas()
+    const uninitializedPersonas = useMyUninitializedPersonas()
     const { identifier } = useQueryParams(['identifier'])
     const { value: persona = null, loading, error } = useAsync(async () => {
         if (identifier)
             return Services.Identity.queryPersona(Identifier.fromString(identifier, ECKeyIdentifier).unwrap())
         return null
-    }, [identifier, personas])
+    }, [identifier, uninitializedPersonas])
 
     // detect persona's nickname prevent from displaying undefined
     if (loading || !persona?.nickname) return null
