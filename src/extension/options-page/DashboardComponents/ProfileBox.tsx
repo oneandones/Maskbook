@@ -11,6 +11,7 @@ import {
 import { exclusiveTasks } from '../../content-script/tasks'
 import { useModal } from '../Dialogs/Base'
 import { DashboardPersonaUnlinkConfirmDialog } from '../Dialogs/Persona'
+import { sleep } from '../../../utils/utils'
 
 interface ProfileBoxProps {
     persona: Persona | null
@@ -42,6 +43,9 @@ export default function ProfileBox({ persona, ProviderLineProps }: ProfileBoxPro
     const onConnect = async (provider: typeof providers[0]) => {
         if (!persona) return
         if (!(await getCurrentNetworkUI(provider.network).requestPermission())) return
+
+        // FIXME:
+        // setting storage race condition here
         currentImmersiveSetupStatus[provider.network].value = JSON.stringify({
             status: 'during',
             persona: persona.identifier.toText(),
