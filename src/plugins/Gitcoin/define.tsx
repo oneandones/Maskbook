@@ -39,7 +39,7 @@ function Renderer(props: React.PropsWithChildren<{ post: string }>) {
     return (
         <MaskbookPluginWrapper pluginName="Gitcoin">
             <Suspense fallback={<SnackbarContent message="Maskbook is loading this plugin..." />}>
-                <PreviewCardLogic {...props} />
+                <Gitcoin {...props} />
             </Suspense>
         </MaskbookPluginWrapper>
     )
@@ -51,7 +51,7 @@ function shouldActivate(post: string): Result<void, void> {
     return Err.EMPTY
 }
 
-function PreviewCardLogic(props: { post: string }) {
+function Gitcoin(props: { post: string }) {
     const [open, setOpen] = useState(false)
     const [wallets, tokens, onRequireNewWallet] = useWalletDataSource()
     const url = useMemo(() => parseURL(props.post).find((x) => x.startsWith('https://gitcoin.co/grants')) ?? null, [
@@ -73,11 +73,11 @@ function PreviewCardLogic(props: { post: string }) {
                 hasPermission={true}
                 loading={isValidating}
                 image={image ? <img src={image} width="100%" /> : null}
+                title={title ?? 'A Gitcoin grant'}
                 line1={finalAmount ? `${finalAmount} DAI` : ''}
                 line2="ESTIMATED"
                 line3={amount ? `${amount} DAI` : ''}
                 line4={contributors ? `${contributors} contributors` : ''}
-                title={title ?? 'A Gitcoin grant'}
                 address={address}
                 originalURL={url ?? ''}
             />
